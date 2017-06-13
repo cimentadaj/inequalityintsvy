@@ -21,4 +21,4 @@
 #' @source \url{https://stats.oecd.org/Index.aspx?DataSetCode=IDD}
 #'
 #'
-"inequality_data"
+"economic_inequality"

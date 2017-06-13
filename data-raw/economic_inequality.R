@@ -11,7 +11,7 @@ library(readr)
 ## click on Export -> Text File (CSV) - > Download
 ##### All income inequality indicators
 all_ineq_indicators <-
-  readr::read_csv("./inst/IDD_26042017182325929.csv")
+  readr::read_csv("./data-raw/raw_economic_inequality.csv")
 
 # stats::setNames(unique(all_ineq_indicators$Measure), unique(all_ineq_indicators$MEASURE))
 # The above code gives you all the measured available with its code.
