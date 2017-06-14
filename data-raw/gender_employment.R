@@ -2,32 +2,13 @@ library(tidyverse)
 library(readr)
 
 ## Download the data from https://stats.oecd.org/Index.aspx?DataSetCode=IDD.
-## click on Export -> Text File (CSV) - > Download
-##### All income inequality indicators
+## On the rightmost menu click on Gender -> Employment -> Indicators of gender equality in employment
+## Click on Export -> Text File (CSV) -> Download
+
 all_gender_indicators <-
   readr::read_csv("./data-raw/raw_gender_employment.csv")
 
-# stats::setNames(unique(all_ineq_indicators$Measure), unique(all_ineq_indicators$MEASURE))
-# The above code gives you all the measured available with its code.
 indicators <- paste0("EMP", c(1:3, 5:6, 8))
-
-# EMP1
-# Labour force participation rate
-
-# EMP2
-# Employment/population ratio
-
-# EMP3
-# Unemployment rate
-
-# EMP5
-# Share of employed in part-time employment
-
-# EMP6
-# Share of employed in involuntary part-time employment
-
-# EMP8
-# Share of employed in temporary employment
 
 gender_indicators <-
   all_gender_indicators %>%
@@ -100,43 +81,53 @@ vector_filler <- function(vector_to_fill, vector_to_fill_from) {
 country_names <- unique(gender_indicators$Country)
 unique_gender_indicator <- unique(gender_indicators$IND)
 
-# Loop through each country, and then through each inequality indicator and apply the function from above.
-# This will return a list for each country containing all inequality indicators.
+# Loop through each country, and then through each inequality indicator and then through each sex
+# and apply the function from above. This will return three nested lists. One for country
+# with 6 indicators for each country and then for male and female for each indicators
 all_indicators <-
   purrr::map(country_names, function(country_name) {
     purrr::map(unique_gender_indicator, function(gender_ind) {
+      purrr::map(c("Men", "Women"), function(actual_gender) {
 
       specific_country <- with(gender_indicators,
                                gender_indicators[IND == gender_ind &
-                                                 Country == country_name,
+                                                 Country == country_name &
+                                                 Sex == actual_gender,
                                                  c("Country", "Year", "Value")])
 
       vector_to_fill_from <- with(specific_country, stats::setNames(Value, Year))
 
       vector_filler(vector_to_fill, vector_to_fill_from)
 
+      })
     })
   }) %>%
   stats::setNames(country_names)
 
-# Take that list, for each country, cbind it and the data frame it.
-# Finally, row bind all of those data frames.
-# You left off here! Something is wrong with the vector_filler function because it's picking some values twice
-# Check running lines 127 and 128
+
 reduce_df <-
   all_indicators %>%
-  purrr::map(~ tibble(.x)) %>%
-  purrr::reduce(rbind)
+  purrr::map(function(country) {
+    purrr::map(country, ~ {
+      .x %>%
+        setNames(c("male", "female")) %>%
+        tibble::enframe() %>%
+        tidyr::unnest() %>%
+        dplyr::mutate(year = rep(vector_to_fill, 2))
+    })
+  })
 
-colnames(reduce_df) <- unique_gender_indicator
-# Data base sort of ready
+gender_employment <-
+  purrr::map(reduce_df, ~ {
+  setNames(.x, unique_gender_indicator) %>%
+    tibble::enframe(name = "gender_indicator") %>%
+    tidyr::unnest()
+  }) %>%
+  tibble::enframe() %>%
+  tidyr::unnest() %>%
+  setNames(c("country", "gender_indicator", "gender", "value", "year"))
 
-gender_indicators <-
-  reduce_df %>%
-  tibble::as_tibble() %>%
-  dplyr::mutate(year = as.character(rep(vector_to_fill, length(country_names))),
-                country = rep(country_names, each = length(vector_to_fill))) %>%
-  tidyr::gather(indicators, value, GINI:S90S10)
+# Data base ready
 
-write_csv(all_ineq_indicators, "./data-raw/raw_gender_indicators.csv")
-devtools::use_data(gender_indicators, overwrite = TRUE)
+readr::write_csv(all_gender_indicators, "./data-raw/raw_gender_employment.csv")
+devtools::use_data(gender_employment, overwrite = TRUE)
